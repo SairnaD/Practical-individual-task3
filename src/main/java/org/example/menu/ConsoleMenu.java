@@ -7,12 +7,14 @@ import org.example.model.PaymentResult;
 import org.example.payment.PaymentMethod;
 import org.example.payment.PaymentMethodFactory;
 import org.example.payment.PaymentProcessor;
+import org.example.model.OrderRepository;
 
 import java.util.Scanner;
 
 public class ConsoleMenu {
     private final Scanner scanner = new Scanner(System.in);
     private final PaymentProcessor paymentProcessor = new PaymentProcessor();
+    private final OrderRepository orderRepository = new OrderRepository();
 
     private Order currentOrder;
 
@@ -31,6 +33,7 @@ public class ConsoleMenu {
                 case 2 -> addItem();
                 case 3 -> viewOrder();
                 case 4 -> payOrder();
+                case 5 -> viewCompletedOrders();
                 case 0 -> running = false;
                 default -> System.out.println("Invalid option");
             }
@@ -48,7 +51,9 @@ public class ConsoleMenu {
     }
 
     private void addItem(){
-        // TODO: check if order exists
+        if (currentOrder == null) {
+            System.out.println("Create an order first.");
+        }
 
         System.out.println("Item name:");
         String itemName = scanner.nextLine();
@@ -64,7 +69,10 @@ public class ConsoleMenu {
     }
 
     private void viewOrder(){
-        // TODO: check if order exists
+        if (currentOrder == null) {
+            System.out.println("Create an order first.");
+            return;
+        }
 
         System.out.println("Customer: " + currentOrder.getCustomerName());
         System.out.println("Status: " +  currentOrder.getStatus());
@@ -78,13 +86,17 @@ public class ConsoleMenu {
     }
 
     private void payOrder(){
-        // TODO: check if order exists
+        if (currentOrder == null) {
+            System.out.println("Create an order first.");
+            return;
+        }
 
         System.out.println("""
                 Select payment method:
                 1. Credit Card
                 2. PayPal
                 3. Gift Card
+                4. Bank Transfer
                 """);
         int option = Integer.parseInt(scanner.nextLine());
 
@@ -92,11 +104,16 @@ public class ConsoleMenu {
             case 1 -> createCreditCardPayment();
             case 2 -> createPaypalPayment();
             case 3 -> createGiftCardPayment();
+            case 4 -> createBankTransferPaymnet();
             default -> throw new IllegalArgumentException("Invalid payment method");
         };
 
         PaymentResult result = paymentProcessor.process(currentOrder, paymentMethod);
         System.out.println(result.getMessage());
+
+        if (result.isSuccessful()) {
+            orderRepository.save(currentOrder);
+        }
     }
 
     private PaymentMethod createCreditCardPayment(){
@@ -110,13 +127,46 @@ public class ConsoleMenu {
     }
 
     private  PaymentMethod createPaypalPayment(){
-        // TODO
-        return null;
+        System.out.println("PayPal email: ");
+        String email = scanner.nextLine();
+
+        return PaymentMethodFactory.createPaypalPayment(email);
     }
 
     private PaymentMethod createGiftCardPayment(){
-        // TODO
-        return null;
+        System.out.println("Gift card code:");
+        String code = scanner.nextLine();
+
+        System.out.println("Gift card balance:");
+        double balance = Double.parseDouble(scanner.nextLine());
+
+        return PaymentMethodFactory.createGiftCardPayment(code, balance);
+    }
+
+    private PaymentMethod createBankTransferPaymnet() {
+        System.out.println("Account holder name:");
+        String accountHolderName = scanner.nextLine();
+
+        System.out.println("IBAN:");
+        String iban = scanner.nextLine();
+
+        return PaymentMethodFactory.createBankTransferPayment(
+                accountHolderName, iban
+        );
+    }
+
+    private void viewCompletedOrders() {
+        var completedOrders = orderRepository.getCompletedOrders();
+
+        if (completedOrders.isEmpty()) {
+            System.out.println("No completed orders yet.");
+            return;
+        }
+
+        for (Order order : completedOrders) {
+            System.out.println("Customer: " + order.getCustomerName() + " | Total: " + order.calculateTotal() + " " + AppConfig.getInstance().getCurrency()
+            );
+        }
     }
 
     private void printMenu(){
@@ -125,6 +175,7 @@ public class ConsoleMenu {
                 2. Add item to order
                 3. View order
                 4. Pay order
+                5. View completed orders
                 0. Exit
                 """);
     }

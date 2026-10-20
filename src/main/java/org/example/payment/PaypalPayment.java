@@ -12,6 +12,10 @@ public class PaypalPayment extends PaymentMethod {
 
     @Override
     public PaymentResult processPayment(double amount) {
+        if (email == null || !email.contains("@") || email.startsWith("@") || email.endsWith("@")) {
+            return new PaymentResult(false, "Invalid PayPal email.");
+        }
+
         return new PaymentResult(true, "Paid " + amount + " using PayPal");
     }
 }
